@@ -4,13 +4,15 @@ MainWindow: Top-level application window.
 
 from __future__ import annotations
 
+import os
+
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QLabel, QPushButton, QLineEdit, QListWidget, QListWidgetItem,
     QGroupBox, QScrollArea, QFrame, QSplitter, QSizePolicy,
-    QMessageBox, QApplication,
+    QCheckBox, QMessageBox, QApplication,
 )
 
 from .data_manager import (
@@ -19,11 +21,19 @@ from .data_manager import (
 )
 from .box_grid import BoxGridWidget
 from .import_dialogs import ScanFileImportDialog, PicklistImportDialog
+from .label_config import LabelTemplateStore
+from .label_editor import LabelEditorDialog
+from .label_printer import print_label
 from .styles import MAIN_QSS
 
 
 _MODE_BOX  = "BOX"
 _MODE_TUBE = "TUBE"
+
+# Label config is stored next to the project root (one level above app/)
+_LABEL_CONFIG_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "label_config.json"
+)
 
 
 class MainWindow(QMainWindow):
@@ -37,6 +47,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Picklist Box Scanner")
         self.setMinimumSize(1100, 680)
         self.setStyleSheet(MAIN_QSS)
+
+        # Label template store — load from disk or fall back to defaults
+        try:
+            self._template_store = LabelTemplateStore.load_from_file(_LABEL_CONFIG_PATH)
+        except Exception:
+            self._template_store = LabelTemplateStore()
 
         self._build_ui()
         self._update_scan_input_state()
@@ -104,6 +120,25 @@ class MainWindow(QMainWindow):
 
         row.addWidget(btn_import_scan)
         row.addWidget(btn_import_pick)
+
+        # Visual separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
+        row.addWidget(sep)
+
+        # Print controls
+        self._print_checkbox = QCheckBox("Print label on scan")
+        self._print_checkbox.setToolTip(
+            "Automatically send a label to the default printer after each tube scan"
+        )
+        row.addWidget(self._print_checkbox)
+
+        btn_edit_label = QPushButton("🏷  Edit Label…")
+        btn_edit_label.setToolTip("Configure the label template (size, fields, positions)")
+        btn_edit_label.clicked.connect(self._on_edit_label)
+        row.addWidget(btn_edit_label)
+
         row.addStretch()
         row.addWidget(btn_scan)
         row.addWidget(btn_reset)
@@ -318,6 +353,14 @@ class MainWindow(QMainWindow):
                 f"⚠  Tube '{tube_id}' was scanned but is NOT on the picklist.", "warning"
             )
 
+        # Auto-print label if enabled
+        if self._print_checkbox.isChecked():
+            ok = print_label(self._template_store.active, result)
+            if not ok:
+                self._show_banner(
+                    "⚠  Label print failed – is the default printer available?", "warning"
+                )
+
         self._update_progress()
         self._update_history_item(self._current_box)
         self._scan_input.setFocus()
@@ -472,6 +515,22 @@ class MainWindow(QMainWindow):
         self._lbl_meta_empty.setVisible(True)
 
     # ══════════════════════════════════════════════════════════════════════════
+    # Label printing
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _on_edit_label(self):
+        """Open the WYSIWYG label editor."""
+        meta_keys: list[str] = sorted(
+            {
+                key
+                for entry in self.dm.picklist.values()
+                for key in entry.get("metadata", {})
+            }
+        )
+        dlg = LabelEditorDialog(self._template_store, _LABEL_CONFIG_PATH, meta_keys, self)
+        dlg.exec()  # store is updated in-place when Apply or Save is clicked
+
+    # ══════════════════════════════════════════════════════════════════════════
     # Keyboard shortcut
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -480,3 +539,8 @@ class MainWindow(QMainWindow):
             self._on_scan_new_box()
         else:
             super().keyPressEvent(event)
+
+    def closeEvent(self, event):
+        # Label templates are only written when the user explicitly saves in the
+        # label editor — no auto-save on close.
+        super().closeEvent(event)

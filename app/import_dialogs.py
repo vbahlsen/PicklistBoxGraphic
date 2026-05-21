@@ -82,6 +82,16 @@ def _col_choices(df: pd.DataFrame) -> list[str]:
     return [str(c) for c in df.columns]
 
 
+def _guess_col(cols: list[str], *prefixes: str) -> str | None:
+    """Return the first column name starting with any prefix (case-insensitive)."""
+    for prefix in prefixes:
+        pfx_l = prefix.lower()
+        for col in cols:
+            if col.lower().startswith(pfx_l):
+                return col
+    return None
+
+
 # ── ScanFileImportDialog ───────────────────────────────────────────────────────
 
 class ScanFileImportDialog(QDialog):
@@ -232,6 +242,7 @@ class ScanFileImportDialog(QDialog):
 
     def _populate_column_dropdowns(self):
         choices = _col_choices(self._current_df)
+        none_choices = [_NONE_LABEL] + choices
         for cmb in (
             self._cmb_position, self._cmb_row_col,
             self._cmb_col_col, self._cmb_tube_id, self._cmb_box_id,
@@ -239,10 +250,22 @@ class ScanFileImportDialog(QDialog):
             current = cmb.currentText()
             cmb.blockSignals(True)
             cmb.clear()
-            cmb.addItems(choices)
-            if current in choices:
+            cmb.addItems(none_choices)
+            if current in none_choices:
                 cmb.setCurrentText(current)
             cmb.blockSignals(False)
+
+        # Auto-guess from column headers (only fills blanks, never overwrites user choice)
+        def _try_guess(cmb, *prefixes):
+            if cmb.currentText() == _NONE_LABEL:
+                guess = _guess_col(choices, *prefixes)
+                if guess:
+                    cmb.setCurrentText(guess)
+
+        _try_guess(self._cmb_row_col,  "row", "rad")
+        _try_guess(self._cmb_col_col,  "col")
+        _try_guess(self._cmb_tube_id,  "tube")
+        _try_guess(self._cmb_box_id,   "rack", "orient")
 
     def _toggle_split(self, checked: bool):
         split = checked if isinstance(checked, bool) else self._chk_split.isChecked()
@@ -264,6 +287,25 @@ class ScanFileImportDialog(QDialog):
             return
 
         split = self._chk_split.isChecked()
+
+        # Validate required column mappings
+        if self._cmb_tube_id.currentText() == _NONE_LABEL:
+            QMessageBox.warning(self, "Missing Mapping", "Please select a Tube ID column.")
+            return
+        if self._cmb_box_id.currentText() == _NONE_LABEL:
+            QMessageBox.warning(self, "Missing Mapping", "Please select a Box ID column.")
+            return
+        if split:
+            if (self._cmb_row_col.currentText() == _NONE_LABEL
+                    or self._cmb_col_col.currentText() == _NONE_LABEL):
+                QMessageBox.warning(self, "Missing Mapping",
+                                    "Please select both Row and Column columns.")
+                return
+        else:
+            if self._cmb_position.currentText() == _NONE_LABEL:
+                QMessageBox.warning(self, "Missing Mapping", "Please select a Position column.")
+                return
+
         opts = ScanFileOptions(
             files=self._files,
             has_headers=self._chk_headers.isChecked(),
@@ -409,17 +451,24 @@ class PicklistImportDialog(QDialog):
         choices = _col_choices(self._current_df)
         none_choices = [_NONE_LABEL] + choices
 
-        for cmb, opts in [
-            (self._cmb_tube_id, choices),
-            (self._cmb_case_id, none_choices),
-        ]:
+        for cmb in (self._cmb_tube_id, self._cmb_case_id):
             current = cmb.currentText()
             cmb.blockSignals(True)
             cmb.clear()
-            cmb.addItems(opts)
-            if current in opts:
+            cmb.addItems(none_choices)
+            if current in none_choices:
                 cmb.setCurrentText(current)
             cmb.blockSignals(False)
+
+        # Auto-guess from column headers (only fills blanks, never overwrites user choice)
+        def _try_guess(cmb, *prefixes):
+            if cmb.currentText() == _NONE_LABEL:
+                guess = _guess_col(choices, *prefixes)
+                if guess:
+                    cmb.setCurrentText(guess)
+
+        _try_guess(self._cmb_tube_id, "isolat_bplass")
+        _try_guess(self._cmb_case_id, "sak", "case")
 
         # Extra metadata list
         self._list_extra.clear()
@@ -434,6 +483,10 @@ class PicklistImportDialog(QDialog):
 
         if self._current_df.empty:
             QMessageBox.warning(self, "No data", "Could not read any data from the file.")
+            return
+
+        if self._cmb_tube_id.currentText() == _NONE_LABEL:
+            QMessageBox.warning(self, "Missing Mapping", "Please select a Tube ID column.")
             return
 
         col_case_raw = self._cmb_case_id.currentText()

@@ -1,0 +1,47 @@
+{
+  "active": "Default",
+  "templates": {
+    "Default": {
+      "label_width_mm": 36.0,
+      "label_height_mm": 20.0,
+      "fields": [
+        {
+          "field_key": "case_id",
+          "display_name": "Case",
+          "x_mm": 2.0,
+          "y_mm": 2.0,
+          "font_size_pt": 9,
+          "enabled": true,
+          "show_prefix": true
+        },
+        {
+          "field_key": "tube_id",
+          "display_name": "Tube",
+          "x_mm": 1.95,
+          "y_mm": 4.84,
+          "font_size_pt": 10,
+          "enabled": true,
+          "show_prefix": true
+        },
+        {
+          "field_key": "position",
+          "display_name": "Position",
+          "x_mm": 2.38,
+          "y_mm": 8.22,
+          "font_size_pt": 7,
+          "enabled": true,
+          "show_prefix": true
+        },
+        {
+          "field_key": "isolat_bboks",
+          "display_name": "isolat_bboks",
+          "x_mm": 1.68,
+          "y_mm": 10.89,
+          "font_size_pt": 9,
+          "enabled": true,
+          "show_prefix": true
+        }
+      ]
+    }
+  }
+}

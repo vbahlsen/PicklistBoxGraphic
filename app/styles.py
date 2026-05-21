@@ -153,6 +153,27 @@ QCheckBox::indicator {
     height: 14px;
 }
 
+QSpinBox, QDoubleSpinBox {
+    background-color: #FFFFFF;
+    color: #000000;
+    border: 1px solid #90A4AE;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 9pt;
+    min-height: 22px;
+}
+QSpinBox:focus, QDoubleSpinBox:focus { border-color: #1565C0; }
+QSpinBox::up-button, QDoubleSpinBox::up-button,
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    width: 16px;
+    border: none;
+    background-color: #ECEFF1;
+}
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
+    background-color: #B0BEC5;
+}
+
 QComboBox {
     background-color: #FFFFFF;
     color: #000000;
@@ -186,7 +207,7 @@ QDialogButtonBox QPushButton {
 
 /* Metadata panel */
 QLabel#meta_title {
-    font-size: 13pt;
+    font-size: 22pt;
     font-weight: bold;
     color: #000000;
 }
