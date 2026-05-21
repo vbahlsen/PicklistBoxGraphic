@@ -145,6 +145,6 @@ class LabelTemplateStore:
             active_name = data.get("active", next(iter(templates)))
             return cls(templates=templates, active_name=active_name)
 
-        # Legacy single-config format — wrap in store
+        # Legacy single-config format ï¿½ wrap in store
         config = LabelConfig.from_dict(data)
         return cls(templates={cls.DEFAULT_NAME: config}, active_name=cls.DEFAULT_NAME)
